@@ -264,7 +264,7 @@ def check_clusters(y, clust_labels, img_threshold=15, v=True):
     score = np.sum(np.max(result, axis=1))/n_clusters
     weighted = np.dot(np.max(result, axis=1), np.array(perc_cat))/100
     #maybe it's best to weight the score by the category clustering index (see k-means example below)
-    my_log.log_it("Overall score (doesn't consider category clustering): %.2f%%, weighted: %.2f%%"%(score, weighted))
+    #my_log.log_it("Overall score (doesn't consider category clustering): %.2f%%, weighted: %.2f%%"%(score, weighted))
     return weighted, my_log.get_log()
 
 '''
@@ -294,30 +294,6 @@ def batch_std(df, columns):
         temp = standardize(df, column)
         new_df[column] = temp
     return new_df
-
-'''
-class test is used for testing purposes ???
-'''
-class test():
-    def __init__(self):
-        self.best = [np.NINF,0,0]
-        self.scores = []
-        
-    def update(self, score, k, log=None):
-        self.log = log
-        if score > self.best[0]:
-            self.best = score, k, log
-        self.scores.append((k, score))
-        
-    def get_result(self):
-        best = self.best
-        scores = self.scores
-        print('best score: %.2f%%, number of clusters: %i' % (best[0], best[1]))
-        if self.log is not None:
-            print('log of best: \n%s' % best[2])
-        plt.figure()
-        plt.plot(*zip(*scores),'-')
- 
 
 '''
 class interface builds the environment from which we will inherit later in order to build our supervised learning 
