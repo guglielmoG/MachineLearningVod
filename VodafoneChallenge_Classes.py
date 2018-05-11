@@ -45,6 +45,7 @@ class buildTrain():
         dopca = pca is None or pca > 0
         origin_shape = X.shape
         
+    
         #check and remove nan values
         X = X.copy()
         X[y.name] = y.copy()
@@ -56,7 +57,7 @@ class buildTrain():
             y = X[y.name]
         X.drop(y.name, axis=1, inplace=True)
         n_data, _ = X.shape
-    
+
         assert n_data == len(y)
         assert X.shape[1] == origin_shape[1]
         
@@ -299,11 +300,11 @@ class test is used for testing purposes ???
 '''
 class test():
     def __init__(self):
-        self.best = [0,0,0]
+        self.best = [np.NINF,0,0]
         self.scores = []
         
-    def update(self, score, k):
-        score, log = score
+    def update(self, score, k, log=None):
+        self.log = log
         if score > self.best[0]:
             self.best = score, k, log
         self.scores.append((k, score))
@@ -311,8 +312,9 @@ class test():
     def get_result(self):
         best = self.best
         scores = self.scores
-        print('best weighted score: %.2f%%, number of clusters: %i' % (best[0], best[1]))
-        print('log of best: \n%s' % best[2])
+        print('best score: %.2f%%, number of clusters: %i' % (best[0], best[1]))
+        if self.log is not None:
+            print('log of best: \n%s' % best[2])
         plt.figure()
         plt.plot(*zip(*scores),'-')
  
