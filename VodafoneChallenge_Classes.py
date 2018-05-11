@@ -693,56 +693,187 @@ def test_sup(*objs):
     return objs[i_max]
 
 '''
+SimAnn class with a few modification to fit it for our goal
+'''
+
+class SimAnnProbl:
+    def cost(self):
+        # returns a float
+        raise Exception("not implemented")
+    def propose_move(self):
+        # returns some move
+        raise Exception("not implemented")
+    def compute_delta_cost(self, move):
+        # This is a generic method which only relies on two other methods:
+        # `accept_move` and `cost`. However, it assumes that accepting the same
+        # move twice will get you back to the original configuration. This may
+        # not always be the case, so it's a bit dangerous. However, when it is
+        # true, then you don't need to necessarily write the method in your
+        # class, at least at the start. (This version is extremely inefficient
+        # though, so you will most likely want to write your own. But you can
+        # use this to check your code, they should give the same result.)
+        old_cost = self.cost()
+        self.accept_move(move)
+        new_cost = self.cost()
+        self.accept_move(move)
+        delta_cost = new_cost - old_cost
+        return delta_cost
+    def accept_move(self, move):
+        raise Exception("not implemented")
+    def copy(self):
+        # returns another problem
+        raise Exception("not implemented")
+
+def accept(delta_cost, T):
+    if delta_cost >= 1e-3:
+        return True
+    if T == 0:
+        return False
+    return np.random.rand() < np.exp(delta_cost / T)
+
+def simann(probl, iters=10**3, seed=None,
+           beta0=10.0, beta1=100.0, beta_steps=10):
+    
+    # check type of argument
+    if not isinstance(probl, SimAnnProbl):
+        raise Exception("probl must be a SimAnnProbl")
+    # compute the initial cost
+    cost = probl.cost()
+    best = probl.copy()
+    best_cost = cost
+    # set the random seed
+    if seed is not None:
+        np.random.seed(seed)
+    # anneal a temperature from some starting point, down to 0
+    #for T in np.linspace(T0, 0.0, Tsteps):
+    #    
+    # ...actually, use beta = 1/T instead. We increase beta linearly for a
+    # number of steps. Then, we set it to infinity to do a last pass at zero
+    # temperature.
+    beta_list = np.linspace(beta0, beta1, beta_steps)
+    beta_list.resize(beta_steps+1) # numpy arrays do not have insert/append...
+    beta_list[-1] = np.inf
+    for beta in beta_list:
+        if beta != np.inf:
+            T = 1 / beta
+        else:
+            T = 0.0
+        # run a few MCMC Metropolis iterations
+        print("T=", T)
+        accepted = 0
+        for iter in range(iters):
+            # propose a move
+            move = probl.propose_move()
+            # compute the delta_cost of the move
+            delta_cost = probl.compute_delta_cost(move)
+            # accept the move or not
+            if accept(delta_cost, T):
+                probl.accept_move(move)
+                cost += delta_cost
+                # DEBUG CODE to check the compute_delta_cost method
+                # print("cost=", cost, "tsp.cost()=", tsp.cost())
+                # assert abs(cost - tsp.cost()) < 1e-10
+                accepted += 1
+                if cost >= best_cost:
+                    best_cost = cost
+                    best = probl.copy()
+        print("  costs: current=", cost, "best=", best_cost)
+        print("  acceptance rate=", accepted / iters)
+    # return the last configuration and the best
+    return probl, best
+
+'''
 class GridSearch is used for optimizing weights through a grid search. We implemented this
 as a greedy randomized algorithm, due to the amount of time that an exhaustive search would have required.
 '''
-class GridSearch():
-    def __init__(self, seed = None, build_seed = None, **args):
-        if seed is None:
-            seed = np.random.randint(666766)
-        self.seed = seed
-        self.build_seed = build_seed
-         
-    def get_best(self, X, y, obj, percentage=(0.8,0.1,0.1), std=False, pca=False, one_hot=False, cat_col=None, epochs=5, 
-                 wmin=0, wmax=1, weights=None, start_config=None, data=None):
-        if data is None:
-            data = buildTrain(X, y, percentage, std, pca, self.build_seed, one_hot, cat_col)
-        
-        train = data.get_train()[0]
-        n_features = train.shape[1]
-           
+class GridSearch(SimAnnProbl):
+    def __init__(self, X, y, obj, percentage, std, pca, weights=None, 
+                 wmin=1e-6, wmax=1, one_hot=False, cat_col=None):
         if weights is None:
             mid_val = (wmin+wmax)/2
             weights = np.array([wmin, mid_val, wmax])
-        if start_config is None:
-            best_config = np.ones(n_features)
-        else:
-            best_config = start_config
-            
-        scores = [0]
-        c = 0
-        s_time = time.time()
-        for feature in np.random.randint(n_features, size=epochs*n_features):
-            best_score = 0
-            for weight in weights:
-                if c %10000 == 0:
-                    print(c)
-                c += 1
-                config = best_config.copy()
-                config[feature] = weight
-                temp = np.eye(n_features)*config
-                X_train_mod = np.dot(train, temp)
-                X_valid_mod = np.dot(data.get_valid()[0], temp)
-                obj.fit(X_train_mod, data.get_train()[1])
-                score = obj.score(X_valid_mod, data.get_valid()[1])
-                if score > best_score:
-                    scores.append(score)
-                    best_score = score
-                    best_config[feature] = weight
-        print('elapsed time:', time.time()-s_time)
-        plt.figure()
-        plt.plot(np.arange(len(scores)), scores)
-        return best_config, best_score
+        if not isinstance(X, pd.DataFrame):
+            raise Exception(1)
+        data = buildTrain(X, y, percentage, std, pca, None, one_hot, cat_col)
+        n_col = data.get_train()[0].shape[1]
+        config = np.ones(n_col)
+        
+        self.n_col = n_col
+        self.data = data
+        
+        obj.fit(self._transform(data.get_train()[0], config), data.get_train()[1])
+        
+        self.obj = obj
+        self.weights = weights
+        self.config = config
+        self.score = self.cost()
+        self.headings = data.get_train()[0].columns
+        self.f_score = metrics.v_measure_score
+        self.save_param = (X, y, obj, percentage, std, pca, weights, wmin, wmax, one_hot, cat_col)
+        
+    def _transform(self, X=None, config=None):
+        if X is None:
+            X = self.data.get_train()[0]
+        if config is None:
+            config = self.config
+        temp = np.eye(self.n_col) * config
+        return np.dot(X, temp)
+        
+    #for v_measure_score
+#    def cost(self):
+#        data, obj = self.data, self.obj
+#        return self.f_score(obj.labels_, data.get_train()[1])
     
-    def score(self, pred_labels, true_labels):
-        return metrics.homogeneity_score(pred_labels, true_labels)       
+    #for supervised
+    def cost(self):
+        data, obj = self.data, self.obj
+        return obj.score(self._transform(data.get_valid()[0]), data.get_valid()[1])
+    
+    def propose_move(self):
+        feature = np.random.randint(self.n_col)
+        move = self._find_best(feature, self.weights)
+        return move
+        
+    def _find_best(self, feature, weights):
+        obj, n_col = self.obj, self.n_col
+        
+        #setup inti
+        proposal = self.config.copy()
+        proposal[feature] = 1
+                
+        X_mod = self._transform()
+        col_name = self.headings[feature]
+        col = X_mod[:,feature]
+        
+        best_weight = weights[0]
+        best_score = 0
+        for weight in weights:
+            X_mod[:, feature] = col * weight
+            obj.fit(X_mod, self.data.get_train()[1])
+            score = self.cost()
+            if score > best_score:
+                best_score = score
+                best_weight = weight
+        proposal[feature] = best_weight
+        print(best_score)
+        return proposal, best_score
+    
+    def compute_delta_cost(self, move):
+        old_score = self.score
+        obj = self.obj
+        obj.fit(self._transform(config=move[0]), self.data.get_train()[1])
+        new_score = self.cost()
+        delta_cost = new_score - old_score
+        self.proposed_score = new_score
+        return delta_cost
+    
+    def accept_move(self, move):
+        self.score = self.proposed_score
+        self.config = move[0]
+            
+    def copy(self):
+        other = GridSearch(*self.save_param)
+        other.weights = self.weights.copy()
+        other.config = self.config.copy()
+        other.score = self.score
+        return other
