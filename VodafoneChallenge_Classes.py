@@ -1,6 +1,8 @@
 '''
-This .py file contains the interfaces we write to make our code the more general we could, so that it could
-be applied also to other datasets or in general other problems.
+This .py file contains the interfaces we wrote to make our code the more general we could, so that it could
+be applied also to other datasets or in general other problems. Direct application of this code to other 
+(bigger) datasets may lead to time problems, not all the functions may be completely optimized. In this
+instance we preferred adding more checks on the data (to prevent bugs) that could be time-consuming and not needed.
 '''
 
 import pandas as pd
@@ -23,8 +25,10 @@ np.set_printoptions(threshold=np.NaN)
 
 '''
 Class buildTrain is a class we built to create autonomously the training, validation and test set.
-We started from a very simple class (very similar to the functions we built in class) and then we implemented
-also the interface to add pca, standardization and in the end also one-hot encoding.
+We started from a very simple class (very similar to the functions we built in class) and then we 
+added PCA, standardization and in the end also one-hot encoding. For simplicity, it only accepts 
+a DataFrame as input, though it can be easily generalized, by removing refences to df.columns,
+which a normal matrix would not have. If PCA is performed then one-hot encoding is not applied.
 '''
 
 class buildTrain():
@@ -148,7 +152,8 @@ class buildTrain():
         return self.X_one_hot
 
 '''
-Class logger is related to verbosity of some objects (print or plot, for example)
+Class logger is related to verbosity of some objects (print or plot, for example).
+Used to store debug or print info that may not want to be visualized until the very end.
 '''
 
 class logger():
@@ -262,7 +267,7 @@ def check_clusters(y, clust_labels, img_threshold=15, v=True):
     return weighted, my_log.get_log()
 
 '''
-Function standardize performs the standardization of an object
+Function standardize performs the standardization of an object. Returns a new object
 '''
 def standardize(df, column):
     if not isinstance(column, (str, int)):
@@ -274,7 +279,7 @@ def standardize(df, column):
     return (c - mean) / sd
 
 '''
-function batch_std perform standardization on a dataset columns.
+function batch_std perform standardization on a dataset columns. Returns new DataFrame
 '''
 def batch_std(df, columns):
     if not isinstance(columns, str):
@@ -627,9 +632,9 @@ def train_trees(my_tree, data, X, y):
     return tscore, vscore
 
 '''
-class trees inheriths from interface with the possibility of deciding among decision trees, random forests or extreme
-random forests. we also implemented a view_tree function, which can be applied just to decision trees,
-that shows the graph of our built tree
+class trees inheriths from interface with the possibility of deciding among decision trees, random forests or extremely randomized trees. 
+We also implemented a view_tree function, which can be applied just to decision trees (in case it is called on another instance, a message
+is shown), that shows the graph of our built tree
 '''
 class trees(interface):
     
@@ -687,8 +692,9 @@ class trees(interface):
 
 '''
 Function test_sup is the one we used for imputation. It takes in input all the objects we want to compare,
-and returns as output the object among those with highest score in the test set 
-(and plots a graph comparing the scores)
+and returns as output the object among those with highest score in the test set. The objects must all 
+inherit from interface and their internal object (the underlining classifier which is trained) must implement
+a score function, with comparable output with the others. Plots a graph comparing the scores.
 '''
 def test_sup(*objs):
     scores = np.zeros(len(objs))

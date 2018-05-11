@@ -40,7 +40,8 @@ df_clean = df_backup.copy()
 '''
 The first part of this code is for the cleaning. This is the most specific part since it involves the cleaning 
 suited for some specific columns, but still this can be applied for example to a dataframe of the same type of the 
-one we have, just with more datapoints than the 2000 we have.
+one we have, just with more datapoints than the 2000 we have. 
+Some instructions rely on external datasets, for example while retrieving rurual info.
 '''
 del df_clean['Unnamed: 0']
 
@@ -273,9 +274,10 @@ weights = np.linspace(0, 10.0, num = 70)
 
 grid = VCC.GridSearch(build_seed=647645)
 
+
+#result = grid.get_best(X, y, knn1, percentage=(0.3,0.2,0.5), std=False, pca=0, one_hot=True, cat_col=cat_col, epochs=1, 
+#                wmin=0, wmax=1, weights=None, start_config=None, data=data)
 '''
-result = grid.get_best(X, y, knn1, percentage=(0.3,0.2,0.5), std=False, pca=0, one_hot=True, cat_col=cat_col, epochs=1, 
-                 #wmin=0, wmax=1, weights=None, start_config=None, data=data)
 we comment out the actual grid search because it requires some time to run. We instead save into a new variable
 the weights found.
 '''
@@ -296,7 +298,7 @@ mask = optimal_weights>0
 The final part of this code is the actual clustering part. We decided to implement two unsupervised clustering,
 Hierarchical Clustering and KMeans, on a dataset modified through the weights found above. We then decided to try 
 also two supervised approaches, with KNN (NON VOLEVAMO FARLO ?? SECONDO ME NON L'ABBIAMO MAI SCRITTO), 
-which may be particular relevant since we used it to optimize weights, and a decision tree.
+which may be particularly relevant since we used it to optimize weights, and a decision tree.
 '''
 
 X_one_hot = data.get_one_hot().loc[:, mask]
