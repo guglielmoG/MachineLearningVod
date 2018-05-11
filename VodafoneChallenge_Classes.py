@@ -682,13 +682,9 @@ def test_sup(*objs):
         X, y = obj.data.get_test()
         if not isinstance(obj, interface):
             raise Exception('must pass interface subclass object')
-        print(X.shape, y.shape)
         score = obj.obj.score(X, y)
-        print(score)
         scores[c] = score
-        print(scores)
         c += 1
-        print(c)
         plt.plot(c, score, '.', label=str(obj))
     legend = plt.legend(loc=(1.01, 0), shadow=True)
     plt.show()
