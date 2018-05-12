@@ -9,4 +9,4 @@ pipeline.ipynb contains only the things that worked best to reach to the output:
 
 
 VodafoneChallenge_Classes.py contains all the classes and useful dependencies that have been written by me (Guglielmo Gattiglio) and Renato Berlinghieri to ease the completion of the task. They are released une GNU licence, so feel free to use them.  
-**Warning:** we cannot be held liable for any damage or loss, in any sense, due to the use of the code contained in VodafoneChallenge_Classes.py. Use it at your own risk.
+**Warning:** we cannot be held liable for any damage or loss, in any sense, due to the use of the code contained in VodafoneChallenge_Classes.py or any other file in this repositiry. Use it at your own risk.
