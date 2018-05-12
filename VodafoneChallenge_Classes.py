@@ -9,15 +9,22 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.decomposition import PCA
+
 from sklearn.linear_model import SGDClassifier
 from sklearn.neural_network import MLPClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble import ExtraTreesClassifier
 from sklearn import tree
+from sklearn.model_selection import GridSearchCV
+from sklearn import metrics
+from sklearn.cluster import KMeans
+from sklearn.cluster import AgglomerativeClustering
 
 import graphviz
+import time
 
 pd.set_option('display.max_columns', None)
 np.set_printoptions(threshold=np.NaN)
@@ -782,11 +789,67 @@ def simann(probl, iters=10**3, seed=None,
     # return the last configuration and the best
     return probl, best
 
+
 '''
 class GridSearch is used for optimizing weights through a grid search. We implemented this
 as a greedy randomized algorithm, due to the amount of time that an exhaustive search would have required.
 '''
-class GridSearch(SimAnnProbl):
+
+class GridSearch():
+    def __init__(self, seed = None, build_seed = None, **args):
+        if seed is None:
+            seed = np.random.randint(666766)
+        self.seed = seed
+        self.build_seed = build_seed
+         
+    def get_best(self, X, y, obj, percentage=(0.8,0.1,0.1), std=False, pca=False, one_hot=False, cat_col=None, epochs=5, 
+                 wmin=0, wmax=1, weights=None, start_config=None, data=None):
+        if data is None:
+            data = buildTrain(X, y, percentage, std, pca, self.build_seed, one_hot, cat_col)
+        
+        train = data.get_train()[0]
+        n_features = train.shape[1]
+           
+        if weights is None:
+            mid_val = (wmin+wmax)/2
+            weights = np.array([wmin, mid_val, wmax])
+        if start_config is None:
+            best_config = np.ones(n_features)
+        else:
+            best_config = start_config
+            
+        scores = [0]
+        c = 0
+        s_time = time.time()
+        for feature in np.random.randint(n_features, size=epochs*n_features):
+            best_score = 0
+            for weight in weights:
+                if c %10000 == 0:
+                    print(c)
+                c += 1
+                config = best_config.copy()
+                config[feature] = weight
+                temp = np.eye(n_features)*config
+                X_train_mod = np.dot(train, temp)
+                X_valid_mod = np.dot(data.get_valid()[0], temp)
+                obj.fit(X_train_mod, data.get_train()[1])
+                score = obj.score(X_valid_mod, data.get_valid()[1])
+                if score > best_score:
+                    scores.append(score)
+                    best_score = score
+                    best_config[feature] = weight
+        print('elapsed time:', time.time()-s_time)
+        plt.figure()
+        plt.plot(np.arange(len(scores)), scores)
+        return best_config, best_score
+    
+    def score(self, pred_labels, true_labels):
+        return metrics.homogeneity_score(pred_labels, true_labels)     
+    
+'''
+class GridSearch using SimAnn.
+'''
+class GridSearch_Sim(SimAnnProbl):
     def __init__(self, X, y, obj, percentage, std, pca, weights=None, 
                  wmin=1e-6, wmax=1, one_hot=False, cat_col=None):
         if weights is None:
@@ -872,7 +935,7 @@ class GridSearch(SimAnnProbl):
         self.config = move[0]
             
     def copy(self):
-        other = GridSearch(*self.save_param)
+        other = GridSearch_Sim(*self.save_param)
         other.weights = self.weights.copy()
         other.config = self.config.copy()
         other.score = self.score
